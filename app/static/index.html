@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Colecao</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Colecao pessoal</p>
+          <h1>Bones, camisas de times e oculos</h1>
+        </div>
+        <button class="primary" id="newItemBtn" type="button">Novo item</button>
+      </section>
+
+      <section class="stats-grid" aria-label="Resumo da colecao">
+        <article>
+          <span>Total</span>
+          <strong id="totalItems">0</strong>
+        </article>
+        <article>
+          <span>Bones</span>
+          <strong id="totalBones">0</strong>
+        </article>
+        <article>
+          <span>Camisas</span>
+          <strong id="totalCamisas">0</strong>
+        </article>
+        <article>
+          <span>Oculos</span>
+          <strong id="totalOculos">0</strong>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <aside class="form-panel" id="formPanel">
+          <div class="tabs" role="tablist" aria-label="Colecao">
+            <button class="tab-button active" id="cadastroTab" type="button">Cadastro</button>
+            <button class="tab-button" id="verificarTab" type="button">Verificar foto</button>
+          </div>
+
+          <div class="tab-panel active" id="cadastroPanel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Cadastro</p>
+              <h2 id="formTitle">Novo item</h2>
+            </div>
+            <button class="ghost icon-button" id="cancelEditBtn" type="button" aria-label="Cancelar">x</button>
+          </div>
+
+          <form id="itemForm">
+            <input id="itemId" type="hidden" />
+
+            <label>
+              Tipo
+              <select id="tipo" required>
+                <option value="bone">Bone</option>
+                <option value="camisa">Camisa</option>
+                <option value="oculos">Oculos</option>
+              </select>
+            </label>
+
+            <label>
+              Nome
+              <div class="name-row">
+                <input id="nome" type="text" required maxlength="120" placeholder="Ex.: Camisa Brasil 1998" />
+                <button class="ghost ai-button" id="identifyPhotoBtn" type="button">IA</button>
+              </div>
+            </label>
+
+            <div class="two-cols">
+              <label>
+                Marca
+                <input id="marca" type="text" maxlength="80" />
+              </label>
+              <label>
+                Time
+                <input id="time" type="text" maxlength="80" />
+              </label>
+            </div>
+
+            <div class="two-cols">
+              <label>
+                Cor
+                <input id="cor" type="text" maxlength="80" />
+              </label>
+              <label>
+                Tamanho
+                <input id="tamanho" type="text" maxlength="40" />
+              </label>
+            </div>
+
+            <div class="two-cols">
+              <label>
+                Ano
+                <input id="ano" type="number" min="1900" max="2100" />
+              </label>
+              <label>
+                Local
+                <input id="localizacao" type="text" maxlength="120" placeholder="Armario, prateleira..." />
+              </label>
+            </div>
+
+            <div class="two-cols">
+              <label>
+                Compra
+                <input id="data_compra" type="date" />
+              </label>
+            </div>
+
+            <div class="photo-field">
+              <span>Foto</span>
+              <input id="foto_url" type="hidden" maxlength="500" />
+              <img id="photoPreview" class="photo-preview" alt="" />
+              <div class="photo-actions">
+                <label class="upload-button">
+                  Subir foto
+                  <input id="foto_upload" type="file" accept="image/*" />
+                </label>
+                <label class="upload-button">
+                  Tirar foto
+                  <input id="foto_camera" type="file" accept="image/*" capture="environment" />
+                </label>
+                <button class="ghost clear-photo" id="clearPhotoBtn" type="button">Remover</button>
+              </div>
+            </div>
+
+            <label>
+              Observacoes
+              <textarea id="observacoes" rows="3" maxlength="1000"></textarea>
+            </label>
+
+            <button class="primary full" type="submit">Salvar item</button>
+          </form>
+          </div>
+
+          <div class="tab-panel" id="verificarPanel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Busca por foto</p>
+                <h2>Ja tenho esse item?</h2>
+              </div>
+            </div>
+
+            <div class="verify-box">
+              <label>
+                Tipo
+                <select id="verifyTipo">
+                  <option value="">Detectar qualquer tipo</option>
+                  <option value="bone">Bone</option>
+                  <option value="camisa">Camisa</option>
+                  <option value="oculos">Oculos</option>
+                </select>
+              </label>
+
+              <img id="verifyPreview" class="photo-preview" alt="" />
+
+              <div class="photo-actions">
+                <label class="upload-button">
+                  Subir foto
+                  <input id="verifyUpload" type="file" accept="image/*" />
+                </label>
+                <label class="upload-button">
+                  Tirar foto
+                  <input id="verifyCamera" type="file" accept="image/*" capture="environment" />
+                </label>
+              </div>
+
+              <div class="verify-result" id="verifyResult">
+                Envie uma foto para verificar se o item ja existe na colecao.
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section class="list-panel">
+          <div class="filters">
+            <input id="searchInput" type="search" placeholder="Buscar na colecao" />
+            <select id="tipoFilter">
+              <option value="">Todos os tipos</option>
+              <option value="bone">Bones</option>
+              <option value="camisa">Camisas</option>
+              <option value="oculos">Oculos</option>
+            </select>
+          </div>
+
+          <div class="item-list" id="itemList"></div>
+          <p class="empty-state" id="emptyState">Nenhum item cadastrado ainda.</p>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

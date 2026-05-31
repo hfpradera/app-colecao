@@ -1,0 +1,12 @@
+services:
+  colecao-app:
+    build: .
+    container_name: colecao-app
+    ports:
+      - "3010:3010"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4.1-mini}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
