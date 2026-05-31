@@ -313,6 +313,31 @@ def output_text_from_response(payload: dict[str, Any]) -> str:
     return "\n".join(chunks).strip()
 
 
+def parse_model_json(raw_text: str) -> dict[str, Any]:
+    text = raw_text.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+
+    try:
+        parsed = json.loads(text)
+        return parsed if isinstance(parsed, dict) else {"nome": text}
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                parsed = json.loads(text[start : end + 1])
+                return parsed if isinstance(parsed, dict) else {"nome": text}
+            except json.JSONDecodeError:
+                pass
+    return {"nome": text}
+
+
 def call_openai_identify(foto_url: str, tipo: str | None = None) -> dict[str, Any]:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -345,6 +370,7 @@ def call_openai_identify(foto_url: str, tipo: str | None = None) -> dict[str, An
                             "Analise a foto de uma colecao pessoal de bones, camisas de times e oculos. "
                             f"{tipo_hint} "
                             "Retorne somente JSON valido com as chaves: nome, marca, time, cor, ano, observacoes. "
+                            "Nao use markdown, nao use bloco de codigo e nao escreva texto fora do JSON. "
                             "Se nao tiver certeza, use texto curto e deixe campos desconhecidos como string vazia. "
                             "O campo nome deve ser uma boa descricao curta para cadastro."
                         ),
@@ -375,10 +401,7 @@ def call_openai_identify(foto_url: str, tipo: str | None = None) -> dict[str, An
         raise HTTPException(status_code=502, detail=f"Nao foi possivel conectar a OpenAI: {exc.reason}") from exc
 
     raw_text = output_text_from_response(response_payload)
-    try:
-        suggestion = json.loads(raw_text)
-    except json.JSONDecodeError:
-        suggestion = {"nome": raw_text}
+    suggestion = parse_model_json(raw_text)
 
     return {
         "nome": str(suggestion.get("nome", "")).strip(),
