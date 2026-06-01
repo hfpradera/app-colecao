@@ -11,6 +11,7 @@ const photoPreview = document.querySelector("#photoPreview");
 const clearPhotoBtn = document.querySelector("#clearPhotoBtn");
 const photoUpload = document.querySelector("#foto_upload");
 const photoCamera = document.querySelector("#foto_camera");
+const batchStatus = document.querySelector("#batchStatus");
 const cameraButton = document.querySelector("#cameraButton");
 const checkCurrentPhotoBtn = document.querySelector("#checkCurrentPhotoBtn");
 const identifyPhotoBtn = document.querySelector("#identifyPhotoBtn");
@@ -155,6 +156,18 @@ async function uploadPhoto(file) {
   return url;
 }
 
+async function identifyUploadedPhoto(fotoUrl) {
+  const suggestion = await request("/api/identificar-foto", {
+    method: "POST",
+    body: JSON.stringify({
+      foto_url: fotoUrl,
+      tipo: selectedCollection,
+    }),
+  });
+  updateCost(suggestion._uso);
+  return suggestion;
+}
+
 async function identifyPhoto() {
   const fotoUrl = document.querySelector("#foto_url").value;
   if (!fotoUrl) {
@@ -166,13 +179,7 @@ async function identifyPhoto() {
   identifyPhotoBtn.classList.add("loading");
 
   try {
-    const suggestion = await request("/api/identificar-foto", {
-      method: "POST",
-      body: JSON.stringify({
-        foto_url: fotoUrl,
-        tipo: selectedCollection,
-      }),
-    });
+    const suggestion = await identifyUploadedPhoto(fotoUrl);
 
     ["nome", "marca", "time", "cor", "ano", "observacoes"].forEach((field) => {
       const value = suggestion[field];
@@ -181,13 +188,54 @@ async function identifyPhoto() {
         element.value = value;
       }
     });
-    updateCost(suggestion._uso);
   } catch (error) {
     alert(error.message);
   } finally {
     identifyPhotoBtn.textContent = "IA";
     identifyPhotoBtn.classList.remove("loading");
   }
+}
+
+function setBatchStatus(message, visible = true) {
+  batchStatus.textContent = message;
+  batchStatus.classList.toggle("visible", visible);
+}
+
+async function processBatch(files) {
+  const list = [...files];
+  if (!list.length) return;
+
+  let created = 0;
+  let failed = 0;
+  setBatchStatus(`Processando 0 de ${list.length} fotos...`);
+
+  for (const [index, file] of list.entries()) {
+    setBatchStatus(`Processando ${index + 1} de ${list.length} fotos...`);
+    try {
+      const fotoUrl = await uploadRawPhoto(file);
+      const suggestion = await identifyUploadedPhoto(fotoUrl);
+      const payload = {
+        tipo: selectedCollection,
+        nome: suggestion.nome || `Item ${index + 1}`,
+        marca: suggestion.marca || "",
+        time: suggestion.time || "",
+        cor: suggestion.cor || "",
+        tamanho: "",
+        ano: suggestion.ano ? Number(suggestion.ano) : null,
+        localizacao: "",
+        data_compra: "",
+        foto_url: fotoUrl,
+        observacoes: suggestion.observacoes || "",
+      };
+      await request("/api/itens", { method: "POST", body: JSON.stringify(payload) });
+      created += 1;
+    } catch (error) {
+      failed += 1;
+    }
+  }
+
+  await refresh();
+  setBatchStatus(`Lote concluido: ${created} cadastrado(s), ${failed} com erro.`);
 }
 
 function setTab(name) {
@@ -491,7 +539,11 @@ collectionButtons.forEach((button) => {
 [photoUpload, photoCamera].forEach((input) => {
   input.addEventListener("change", async () => {
     try {
-      await uploadPhoto(input.files[0]);
+      if (input === photoUpload && input.files.length > 1) {
+        await processBatch(input.files);
+      } else {
+        await uploadPhoto(input.files[0]);
+      }
       input.value = "";
     } catch (error) {
       alert(error.message);

@@ -266,6 +266,22 @@ h2 {
   color: var(--ink);
 }
 
+.batch-status {
+  display: none;
+  border: 1px solid #abefc6;
+  border-radius: 8px;
+  background: #ecfdf3;
+  color: var(--ok);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.batch-status.visible {
+  display: block;
+}
+
 form {
   display: grid;
   gap: 12px;

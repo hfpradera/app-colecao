@@ -83,7 +83,7 @@
 
             <div class="photo-first">
               <strong>Comece pela foto</strong>
-              <span>Ao subir ou tirar uma foto, a IA tenta preencher os dados e mostra o custo da leitura.</span>
+              <span>Suba uma foto para revisar antes de salvar, ou selecione varias fotos do album para cadastrar em lote.</span>
             </div>
 
             <label>
@@ -140,14 +140,15 @@
               <img id="photoPreview" class="photo-preview" alt="" />
               <div class="photo-actions">
                 <label class="upload-button">
-                  Subir foto
-                  <input id="foto_upload" type="file" accept="image/*" />
+                  Subir fotos
+                  <input id="foto_upload" type="file" accept="image/*" multiple />
                 </label>
                 <button class="upload-button" id="cameraButton" type="button">Camera</button>
                 <button class="upload-button" id="checkCurrentPhotoBtn" type="button">Ja tenho?</button>
                 <button class="ghost clear-photo" id="clearPhotoBtn" type="button">Remover</button>
               </div>
               <input id="foto_camera" class="hidden-file" type="file" accept="image/*" capture="environment" />
+              <div class="batch-status" id="batchStatus"></div>
             </div>
 
             <label>
