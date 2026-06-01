@@ -10,6 +10,7 @@ Programa independente para administrar sua colecao de bones, camisas de times e 
 - Upload de fotos e captura pela camera do celular.
 - Identificacao por IA para sugerir nome e detalhes a partir da foto.
 - Aba `Verificar foto` para enviar uma imagem e descobrir se o item ja parece existir na colecao.
+- Contador de custo estimado das leituras por IA na sessao.
 - Banco SQLite local em `data/colecao.db`.
 - Interface web simples, pronta para rodar em Docker.
 
@@ -44,6 +45,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 3010 --reload
 4. Reinicie o app.
 
 O arquivo `.env` fica fora do Git para nao vazar sua chave. O app usa a variavel `OPENAI_API_KEY` para analisar as fotos pela API da OpenAI.
+O custo estimado usa `OPENAI_INPUT_USD_PER_1M` e `OPENAI_OUTPUT_USD_PER_1M`, que podem ser ajustados no `.env` se o preco do modelo mudar.
 
 ## Campos do cadastro
 

@@ -44,6 +44,8 @@ def load_dotenv() -> None:
 
 load_dotenv()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+OPENAI_INPUT_USD_PER_1M = float(os.getenv("OPENAI_INPUT_USD_PER_1M", "0.40"))
+OPENAI_OUTPUT_USD_PER_1M = float(os.getenv("OPENAI_OUTPUT_USD_PER_1M", "1.60"))
 
 TIPOS = {"bone", "camisa", "oculos"}
 IMAGE_TYPES = {
@@ -338,6 +340,21 @@ def parse_model_json(raw_text: str) -> dict[str, Any]:
     return {"nome": text}
 
 
+def usage_cost(payload: dict[str, Any]) -> dict[str, Any]:
+    usage = payload.get("usage") or {}
+    input_tokens = int(usage.get("input_tokens") or 0)
+    output_tokens = int(usage.get("output_tokens") or 0)
+    total_tokens = int(usage.get("total_tokens") or input_tokens + output_tokens)
+    cost_usd = (input_tokens * OPENAI_INPUT_USD_PER_1M + output_tokens * OPENAI_OUTPUT_USD_PER_1M) / 1_000_000
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "custo_usd": round(cost_usd, 6),
+        "modelo": OPENAI_MODEL,
+    }
+
+
 def call_openai_identify(foto_url: str, tipo: str | None = None) -> dict[str, Any]:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -403,7 +420,7 @@ def call_openai_identify(foto_url: str, tipo: str | None = None) -> dict[str, An
     raw_text = output_text_from_response(response_payload)
     suggestion = parse_model_json(raw_text)
 
-    return {
+    result = {
         "nome": str(suggestion.get("nome", "")).strip(),
         "marca": str(suggestion.get("marca", "")).strip(),
         "time": str(suggestion.get("time", "")).strip(),
@@ -411,6 +428,8 @@ def call_openai_identify(foto_url: str, tipo: str | None = None) -> dict[str, An
         "ano": suggestion.get("ano") or None,
         "observacoes": str(suggestion.get("observacoes", "")).strip(),
     }
+    result["_uso"] = usage_cost(response_payload)
+    return result
 
 
 @app.post("/api/identificar-foto")

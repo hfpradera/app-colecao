@@ -13,7 +13,25 @@
           <p class="eyebrow">Colecao pessoal</p>
           <h1>Bones, camisas de times e oculos</h1>
         </div>
-        <button class="primary" id="newItemBtn" type="button">Novo item</button>
+        <div class="top-actions">
+          <span class="cost-pill" id="costPill">IA: US$ 0.000000</span>
+          <button class="primary" id="newItemBtn" type="button">Novo item</button>
+        </div>
+      </section>
+
+      <section class="collection-tabs" aria-label="Escolha a colecao">
+        <button class="collection-card active" data-collection="bone" type="button">
+          <span>Bones</span>
+          <strong id="collectionBones">0</strong>
+        </button>
+        <button class="collection-card" data-collection="camisa" type="button">
+          <span>Camisas</span>
+          <strong id="collectionCamisas">0</strong>
+        </button>
+        <button class="collection-card" data-collection="oculos" type="button">
+          <span>Oculos</span>
+          <strong id="collectionOculos">0</strong>
+        </button>
       </section>
 
       <section class="stats-grid" aria-label="Resumo da colecao">
@@ -37,16 +55,16 @@
 
       <section class="workspace">
         <aside class="form-panel" id="formPanel">
-          <div class="tabs" role="tablist" aria-label="Colecao">
-            <button class="tab-button active" id="cadastroTab" type="button">Cadastro</button>
+          <div class="tabs" role="tablist" aria-label="Acoes da colecao">
+            <button class="tab-button active" id="cadastroTab" type="button">Adicionar</button>
             <button class="tab-button" id="verificarTab" type="button">Verificar foto</button>
           </div>
 
           <div class="tab-panel active" id="cadastroPanel">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">Cadastro</p>
-              <h2 id="formTitle">Novo item</h2>
+              <p class="eyebrow" id="selectedCollectionLabel">Colecao de bones</p>
+              <h2 id="formTitle">Adicionar por foto</h2>
             </div>
             <button class="ghost icon-button" id="cancelEditBtn" type="button" aria-label="Cancelar">x</button>
           </div>
@@ -54,7 +72,7 @@
           <form id="itemForm">
             <input id="itemId" type="hidden" />
 
-            <label>
+            <label class="type-field">
               Tipo
               <select id="tipo" required>
                 <option value="bone">Bone</option>
@@ -62,6 +80,11 @@
                 <option value="oculos">Oculos</option>
               </select>
             </label>
+
+            <div class="photo-first">
+              <strong>Comece pela foto</strong>
+              <span>Ao subir ou tirar uma foto, a IA tenta preencher os dados e mostra o custo da leitura.</span>
+            </div>
 
             <label>
               Nome
@@ -120,12 +143,11 @@
                   Subir foto
                   <input id="foto_upload" type="file" accept="image/*" />
                 </label>
-                <label class="upload-button">
-                  Tirar foto
-                  <input id="foto_camera" type="file" accept="image/*" capture="environment" />
-                </label>
+                <button class="upload-button" id="cameraButton" type="button">Camera</button>
+                <button class="upload-button" id="checkCurrentPhotoBtn" type="button">Ja tenho?</button>
                 <button class="ghost clear-photo" id="clearPhotoBtn" type="button">Remover</button>
               </div>
+              <input id="foto_camera" class="hidden-file" type="file" accept="image/*" capture="environment" />
             </div>
 
             <label>
@@ -163,11 +185,9 @@
                   Subir foto
                   <input id="verifyUpload" type="file" accept="image/*" />
                 </label>
-                <label class="upload-button">
-                  Tirar foto
-                  <input id="verifyCamera" type="file" accept="image/*" capture="environment" />
-                </label>
+                <button class="upload-button" id="verifyCameraButton" type="button">Camera</button>
               </div>
+              <input id="verifyCamera" class="hidden-file" type="file" accept="image/*" capture="environment" />
 
               <div class="verify-result" id="verifyResult">
                 Envie uma foto para verificar se o item ja existe na colecao.

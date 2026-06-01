@@ -11,6 +11,8 @@ const photoPreview = document.querySelector("#photoPreview");
 const clearPhotoBtn = document.querySelector("#clearPhotoBtn");
 const photoUpload = document.querySelector("#foto_upload");
 const photoCamera = document.querySelector("#foto_camera");
+const cameraButton = document.querySelector("#cameraButton");
+const checkCurrentPhotoBtn = document.querySelector("#checkCurrentPhotoBtn");
 const identifyPhotoBtn = document.querySelector("#identifyPhotoBtn");
 const cadastroTab = document.querySelector("#cadastroTab");
 const verificarTab = document.querySelector("#verificarTab");
@@ -19,8 +21,12 @@ const verificarPanel = document.querySelector("#verificarPanel");
 const verifyTipo = document.querySelector("#verifyTipo");
 const verifyUpload = document.querySelector("#verifyUpload");
 const verifyCamera = document.querySelector("#verifyCamera");
+const verifyCameraButton = document.querySelector("#verifyCameraButton");
 const verifyPreview = document.querySelector("#verifyPreview");
 const verifyResult = document.querySelector("#verifyResult");
+const collectionButtons = [...document.querySelectorAll("[data-collection]")];
+const selectedCollectionLabel = document.querySelector("#selectedCollectionLabel");
+const costPill = document.querySelector("#costPill");
 
 const fields = [
   "tipo",
@@ -37,6 +43,14 @@ const fields = [
 ];
 
 let currentItems = [];
+let selectedCollection = "bone";
+let sessionCost = Number(localStorage.getItem("aiSessionCost") || "0");
+
+const collectionNames = {
+  bone: "bones",
+  camisa: "camisas",
+  oculos: "oculos",
+};
 
 function apiUrl(path, params = {}) {
   const url = new URL(path, window.location.origin);
@@ -73,11 +87,28 @@ function placeholderFor(tipo) {
   const label = normalizeTipo(tipo);
   return `data:image/svg+xml,${encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
-      <rect width="640" height="360" fill="#eef4ff"/>
-      <text x="50%" y="48%" text-anchor="middle" fill="#1858bd" font-family="Arial" font-size="34" font-weight="700">${label}</text>
-      <text x="50%" y="59%" text-anchor="middle" fill="#687389" font-family="Arial" font-size="18">sem foto</text>
+      <rect width="640" height="360" fill="#eff4ff"/>
+      <text x="50%" y="48%" text-anchor="middle" fill="#124fc7" font-family="Arial" font-size="34" font-weight="700">${label}</text>
+      <text x="50%" y="59%" text-anchor="middle" fill="#667085" font-family="Arial" font-size="18">sem foto</text>
     </svg>
   `)}`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  }[char]));
+}
+
+function updateCost(usage) {
+  if (!usage || typeof usage.custo_usd !== "number") return;
+  sessionCost += usage.custo_usd;
+  localStorage.setItem("aiSessionCost", String(sessionCost));
+  costPill.textContent = `IA: US$ ${sessionCost.toFixed(6)}`;
 }
 
 function getPayload() {
@@ -97,9 +128,8 @@ function setPhoto(url) {
   photoPreview.classList.toggle("visible", Boolean(url));
 }
 
-async function uploadPhoto(file) {
-  if (!file) return;
-
+async function uploadRawPhoto(file) {
+  if (!file) return "";
   const formData = new FormData();
   formData.append("foto", file);
 
@@ -114,9 +144,15 @@ async function uploadPhoto(file) {
   }
 
   const data = await response.json();
-  setPhoto(data.url);
-  await identifyPhoto();
   return data.url;
+}
+
+async function uploadPhoto(file) {
+  const url = await uploadRawPhoto(file);
+  if (!url) return "";
+  setPhoto(url);
+  await identifyPhoto();
+  return url;
 }
 
 async function identifyPhoto() {
@@ -134,7 +170,7 @@ async function identifyPhoto() {
       method: "POST",
       body: JSON.stringify({
         foto_url: fotoUrl,
-        tipo: document.querySelector("#tipo").value,
+        tipo: selectedCollection,
       }),
     });
 
@@ -145,6 +181,7 @@ async function identifyPhoto() {
         element.value = value;
       }
     });
+    updateCost(suggestion._uso);
   } catch (error) {
     alert(error.message);
   } finally {
@@ -159,6 +196,18 @@ function setTab(name) {
   verificarTab.classList.toggle("active", !cadastro);
   cadastroPanel.classList.toggle("active", cadastro);
   verificarPanel.classList.toggle("active", !cadastro);
+}
+
+function setCollection(tipo) {
+  selectedCollection = tipo;
+  document.querySelector("#tipo").value = tipo;
+  tipoFilter.value = tipo;
+  verifyTipo.value = tipo;
+  selectedCollectionLabel.textContent = `Colecao de ${collectionNames[tipo]}`;
+  collectionButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.collection === tipo);
+  });
+  loadItems().catch((error) => alert(error.message));
 }
 
 function renderVerifyResult(result) {
@@ -198,49 +247,117 @@ async function verifyPhoto(file) {
         tipo: verifyTipo.value || null,
       }),
     });
+    updateCost(result.sugestao?._uso);
     renderVerifyResult(result);
   } catch (error) {
     verifyResult.innerHTML = `<strong>Nao consegui verificar.</strong><span>${escapeHtml(error.message)}</span>`;
   }
 }
 
-async function uploadRawPhoto(file) {
-  const formData = new FormData();
-  formData.append("foto", file);
-
-  const response = await fetch("/api/uploads", {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Nao foi possivel enviar a foto." }));
-    throw new Error(error.detail || "Nao foi possivel enviar a foto.");
+async function verifyCurrentPhoto() {
+  const fotoUrl = document.querySelector("#foto_url").value;
+  if (!fotoUrl) {
+    alert("Envie ou tire uma foto primeiro.");
+    return;
   }
 
-  const data = await response.json();
-  return data.url;
+  setTab("verificar");
+  verifyPreview.src = fotoUrl;
+  verifyPreview.classList.add("visible");
+  verifyResult.textContent = "Procurando itens parecidos...";
+
+  try {
+    const result = await request("/api/verificar-foto", {
+      method: "POST",
+      body: JSON.stringify({
+        foto_url: fotoUrl,
+        tipo: selectedCollection,
+      }),
+    });
+    updateCost(result.sugestao?._uso);
+    renderVerifyResult(result);
+  } catch (error) {
+    verifyResult.innerHTML = `<strong>Nao consegui verificar.</strong><span>${escapeHtml(error.message)}</span>`;
+  }
+}
+
+async function openDeviceCamera(onFile, fallbackInput) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    fallbackInput.click();
+    return;
+  }
+
+  let stream;
+  const sheet = document.createElement("div");
+  sheet.className = "camera-sheet";
+  sheet.innerHTML = `
+    <div class="camera-card">
+      <video autoplay playsinline></video>
+      <div class="camera-actions">
+        <button class="primary" type="button" data-action="capture">Capturar</button>
+        <button class="ghost" type="button" data-action="close">Fechar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(sheet);
+  const video = sheet.querySelector("video");
+
+  function closeCamera() {
+    if (stream) stream.getTracks().forEach((track) => track.stop());
+    sheet.remove();
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false,
+    });
+    video.srcObject = stream;
+  } catch (error) {
+    closeCamera();
+    fallbackInput.click();
+    return;
+  }
+
+  sheet.addEventListener("click", async (event) => {
+    const action = event.target.dataset.action;
+    if (action === "close") closeCamera();
+    if (action === "capture") {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        closeCamera();
+        const file = new File([blob], `foto-${Date.now()}.jpg`, { type: "image/jpeg" });
+        await onFile(file);
+      }, "image/jpeg", 0.9);
+    }
+  });
 }
 
 function fillForm(item) {
   itemId.value = item.id;
+  setCollection(item.tipo);
   fields.forEach((field) => {
     const element = document.querySelector(`#${field}`);
     element.value = item[field] ?? "";
   });
   setPhoto(item.foto_url);
   formTitle.textContent = "Editar item";
+  setTab("cadastro");
   document.querySelector("#formPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function resetForm() {
   itemId.value = "";
   form.reset();
-  document.querySelector("#tipo").value = "bone";
+  document.querySelector("#tipo").value = selectedCollection;
   setPhoto("");
   photoUpload.value = "";
   photoCamera.value = "";
-  formTitle.textContent = "Novo item";
+  formTitle.textContent = "Adicionar por foto";
 }
 
 function renderStats(summary) {
@@ -248,6 +365,9 @@ function renderStats(summary) {
   document.querySelector("#totalBones").textContent = summary.por_tipo.bone || 0;
   document.querySelector("#totalCamisas").textContent = summary.por_tipo.camisa || 0;
   document.querySelector("#totalOculos").textContent = summary.por_tipo.oculos || 0;
+  document.querySelector("#collectionBones").textContent = summary.por_tipo.bone || 0;
+  document.querySelector("#collectionCamisas").textContent = summary.por_tipo.camisa || 0;
+  document.querySelector("#collectionOculos").textContent = summary.por_tipo.oculos || 0;
 }
 
 function metaLine(item) {
@@ -261,16 +381,6 @@ function metaLine(item) {
   ].filter(Boolean);
 
   return parts.map((part) => `<span>${escapeHtml(String(part))}</span>`).join("");
-}
-
-function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;",
-  }[char]));
 }
 
 function renderItems(items) {
@@ -364,12 +474,19 @@ itemList.addEventListener("click", async (event) => {
 cancelEditBtn.addEventListener("click", resetForm);
 newItemBtn.addEventListener("click", () => {
   resetForm();
+  setTab("cadastro");
   document.querySelector("#nome").focus();
 });
 clearPhotoBtn.addEventListener("click", () => setPhoto(""));
 identifyPhotoBtn.addEventListener("click", () => identifyPhoto());
+checkCurrentPhotoBtn.addEventListener("click", verifyCurrentPhoto);
 cadastroTab.addEventListener("click", () => setTab("cadastro"));
 verificarTab.addEventListener("click", () => setTab("verificar"));
+cameraButton.addEventListener("click", () => openDeviceCamera(uploadPhoto, photoCamera));
+verifyCameraButton.addEventListener("click", () => openDeviceCamera(verifyPhoto, verifyCamera));
+collectionButtons.forEach((button) => {
+  button.addEventListener("click", () => setCollection(button.dataset.collection));
+});
 
 [photoUpload, photoCamera].forEach((input) => {
   input.addEventListener("change", async () => {
@@ -389,6 +506,7 @@ verificarTab.addEventListener("click", () => setTab("verificar"));
   });
 });
 
-refresh().catch((error) => {
-  alert(error.message);
-});
+costPill.textContent = `IA: US$ ${sessionCost.toFixed(6)}`;
+refresh()
+  .then(() => setCollection(selectedCollection))
+  .catch((error) => alert(error.message));
