@@ -17,7 +17,7 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -264,12 +264,13 @@ def atualizar_item(item_id: int, item: ItemIn) -> dict[str, Any]:
     return row_to_item(row)
 
 
-@app.delete("/api/itens/{item_id}", status_code=204)
-def excluir_item(item_id: int) -> None:
+@app.delete("/api/itens/{item_id}", status_code=204, response_class=Response)
+def excluir_item(item_id: int) -> Response:
     with get_db() as conn:
         cursor = conn.execute("DELETE FROM itens WHERE id = ?", (item_id,))
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Item nao encontrado.")
+    return Response(status_code=204)
 
 
 @app.get("/api/resumo")
