@@ -221,16 +221,26 @@ h1, h2, h3 { margin: 0; line-height: 1.12; font-family: system-ui, -apple-system
   color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.replica-badge {
+.auth-badge {
   position: absolute;
   top: 8px; left: 8px;
   font-size: 9px; font-weight: 700;
   letter-spacing: 0.05em; text-transform: uppercase;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.92);
   border-radius: 5px;
   padding: 3px 6px;
   pointer-events: none;
+  border: 1px solid transparent;
+  box-shadow: 0 2px 8px rgba(28, 26, 23, 0.12);
+}
+.original-badge {
+  color: #175c38;
+  background: rgba(232, 248, 238, 0.96);
+  border-color: #9fd6b4;
+}
+.replica-badge {
+  color: #8c3f2c;
+  background: rgba(253, 239, 234, 0.96);
+  border-color: #e2aa98;
 }
 
 .empty-state {

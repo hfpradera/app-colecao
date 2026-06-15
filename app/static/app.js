@@ -567,6 +567,12 @@ function cardMeta(item) {
   return parts.join(" · ");
 }
 
+function authenticityBadge(value) {
+  if (value === "original") return '<span class="auth-badge original-badge">Original</span>';
+  if (value === "replica") return '<span class="auth-badge replica-badge">Réplica</span>';
+  return "";
+}
+
 function modalField(label, value) {
   const v = value !== null && value !== undefined && String(value).trim();
   return `
@@ -626,7 +632,7 @@ function renderItems(items) {
     card.innerHTML = `
       <div class="item-photo-wrap">
         <img class="item-photo" src="${escapeHtml(item.foto_url || placeholderFor(item.tipo))}" alt="${escapeHtml(item.nome)}" loading="lazy">
-        ${item.autenticidade === "replica" ? '<span class="replica-badge">Réplica</span>' : ""}
+        ${authenticityBadge(item.autenticidade)}
       </div>
       <div class="item-caption">
         <span class="item-name">${escapeHtml(item.nome)}</span>
@@ -720,12 +726,10 @@ itemModalBody.addEventListener("click", async (e) => {
     const card = document.querySelector(`.item-card[data-id="${item.id}"]`);
     const wrap = card && card.querySelector(".item-photo-wrap");
     if (wrap) {
-      const existing = wrap.querySelector(".replica-badge");
-      if (newVal === "replica" && !existing) {
-        wrap.insertAdjacentHTML("beforeend", '<span class="replica-badge">Réplica</span>');
-      } else if (newVal !== "replica" && existing) {
-        existing.remove();
-      }
+      const existing = wrap.querySelector(".auth-badge");
+      if (existing) existing.remove();
+      const badge = authenticityBadge(newVal);
+      if (badge) wrap.insertAdjacentHTML("beforeend", badge);
     }
   } catch (err) {
     alert(err.message);
