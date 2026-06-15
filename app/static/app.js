@@ -28,6 +28,19 @@ const verifyResult = document.querySelector("#verifyResult");
 const collectionButtons = [...document.querySelectorAll("[data-collection]")];
 const selectedCollectionLabel = document.querySelector("#selectedCollectionLabel");
 const costPill = document.querySelector("#costPill");
+const formPanel = document.querySelector("#formPanel");
+const drawerOverlay = document.querySelector("#drawerOverlay");
+const bottomNavBtns = [...document.querySelectorAll(".bnav-btn")];
+const itemModalOverlay = document.querySelector("#itemModalOverlay");
+const itemModalPhoto = document.querySelector("#itemModalPhoto");
+const itemModalBody = document.querySelector("#itemModalBody");
+const itemModalClose = document.querySelector("#itemModalClose");
+const itemModalEditBtn = document.querySelector("#itemModalEditBtn");
+const itemModalRotateBtn = document.querySelector("#itemModalRotateBtn");
+const itemModalDeleteBtn = document.querySelector("#itemModalDeleteBtn");
+const autenticidadeFilter = document.querySelector("#autenticidadeFilter");
+const ordemFilter = document.querySelector("#ordemFilter");
+const timeFilter = document.querySelector("#timeFilter");
 
 const fields = [
   "tipo",
@@ -41,17 +54,92 @@ const fields = [
   "data_compra",
   "foto_url",
   "observacoes",
+  "autenticidade",
 ];
 
 let currentItems = [];
-let selectedCollection = "bone";
+let selectedCollection = "bone"; // tipo padrão para o formulário de cadastro
+let viewFilter = ""; // filtro de tipo da lista ("" = tudo)
 let sessionCost = Number(localStorage.getItem("aiSessionCost") || "0");
+let activeModalItem = null;
 
 const collectionNames = {
-  bone: "bones",
+  bone: "bonés",
   camisa: "camisas",
-  oculos: "oculos",
+  oculos: "óculos",
 };
+
+const TIPO_CONFIG = {
+  bone: {
+    nomePlaceholder: "Ex.: New Era 9FIFTY New York Yankees",
+    timeLabel: "Time / Tema",
+    showTime: true,
+    corPlaceholder: "Preto, dourado...",
+    showTamanho: true,
+    tamanhoPlaceholder: "",
+  },
+  camisa: {
+    nomePlaceholder: "Ex.: Flamengo Third Kit 2023/24",
+    timeLabel: "Time / Seleção",
+    showTime: true,
+    corPlaceholder: "Azul e branco, listrado...",
+    showTamanho: true,
+    tamanhoPlaceholder: "P, M, G, GG / XS, S, M, L, XL",
+  },
+  oculos: {
+    nomePlaceholder: "Ex.: Ray-Ban Wayfarer RB2140",
+    timeLabel: "Time",
+    showTime: false,
+    corPlaceholder: "Armação: preta / Lentes: polarizadas",
+    showTamanho: false,
+    tamanhoPlaceholder: "",
+  },
+};
+
+function adaptFormForTipo(tipo) {
+  const config = TIPO_CONFIG[tipo] || TIPO_CONFIG.bone;
+
+  document.querySelector("#nome").placeholder = config.nomePlaceholder;
+  document.querySelector("#timeLabelText").textContent = config.timeLabel;
+  document.querySelector("#cor").placeholder = config.corPlaceholder;
+  document.querySelector("#tamanho").placeholder = config.tamanhoPlaceholder;
+
+  const labelTime = document.querySelector("#labelTime");
+  const labelTamanho = document.querySelector("#labelTamanho");
+  const rowMarcaTime = document.querySelector("#rowMarcaTime");
+  const rowCorTamanho = document.querySelector("#rowCorTamanho");
+
+  labelTime.style.display = config.showTime ? "" : "none";
+  rowMarcaTime.classList.toggle("one-item", !config.showTime);
+
+  labelTamanho.style.display = config.showTamanho ? "" : "none";
+  rowCorTamanho.classList.toggle("one-item", !config.showTamanho);
+}
+
+function isDrawerMode() {
+  return window.matchMedia("(max-width: 900px)").matches;
+}
+
+function setBottomNavActive(nav) {
+  bottomNavBtns.forEach((b) => b.classList.remove("active"));
+  const btn = document.querySelector(`.bnav-btn[data-nav="${nav}"]`);
+  if (btn) btn.classList.add("active");
+}
+
+function openDrawer(tab) {
+  if (tab) setTab(tab);
+  formPanel.classList.add("drawer-open");
+  drawerOverlay.classList.add("visible");
+  document.body.style.overflow = "hidden";
+  setBottomNavActive(tab === "verificar" ? "verificar" : "adicionar");
+}
+
+function closeDrawer() {
+  formPanel.classList.remove("drawer-open");
+  drawerOverlay.classList.remove("visible");
+  document.body.style.overflow = "";
+  setBottomNavActive("lista");
+}
 
 function apiUrl(path, params = {}) {
   const url = new URL(path, window.location.origin);
@@ -78,19 +166,19 @@ async function request(path, options = {}) {
 
 function normalizeTipo(tipo) {
   return {
-    bone: "Bone",
+    bone: "Boné",
     camisa: "Camisa",
-    oculos: "Oculos",
+    oculos: "Óculos",
   }[tipo] || tipo;
 }
 
 function placeholderFor(tipo) {
   const label = normalizeTipo(tipo);
   return `data:image/svg+xml,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
-      <rect width="640" height="360" fill="#eff4ff"/>
-      <text x="50%" y="48%" text-anchor="middle" fill="#124fc7" font-family="Arial" font-size="34" font-weight="700">${label}</text>
-      <text x="50%" y="59%" text-anchor="middle" fill="#667085" font-family="Arial" font-size="18">sem foto</text>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+      <rect width="640" height="480" fill="#F2EFEA"/>
+      <text x="50%" y="48%" text-anchor="middle" fill="#BE5C3A" font-family="Arial" font-size="34" font-weight="700">${label}</text>
+      <text x="50%" y="59%" text-anchor="middle" fill="#A39C90" font-family="Arial" font-size="18">sem foto</text>
     </svg>
   `)}`;
 }
@@ -109,7 +197,7 @@ function updateCost(usage) {
   if (!usage || typeof usage.custo_usd !== "number") return;
   sessionCost += usage.custo_usd;
   localStorage.setItem("aiSessionCost", String(sessionCost));
-  costPill.textContent = `IA: US$ ${sessionCost.toFixed(6)}`;
+  costPill.textContent = `IA · US$ ${sessionCost.toFixed(6)}`;
 }
 
 function getPayload() {
@@ -129,10 +217,37 @@ function setPhoto(url) {
   photoPreview.classList.toggle("visible", Boolean(url));
 }
 
+async function resizeIfNeeded(file, maxDim = 1200) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      if (img.naturalWidth <= maxDim && img.naturalHeight <= maxDim) {
+        resolve(file);
+        return;
+      }
+      const scale = maxDim / Math.max(img.naturalWidth, img.naturalHeight);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => resolve(new File([blob], file.name, { type: "image/jpeg" })),
+        "image/jpeg",
+        0.88,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+    img.src = objectUrl;
+  });
+}
+
 async function uploadRawPhoto(file) {
-  if (!file) return "";
+  if (!file) return { url: "", alreadyExists: false };
+  const toUpload = await resizeIfNeeded(file);
   const formData = new FormData();
-  formData.append("foto", file);
+  formData.append("foto", toUpload);
 
   const response = await fetch("/api/uploads", {
     method: "POST",
@@ -145,11 +260,11 @@ async function uploadRawPhoto(file) {
   }
 
   const data = await response.json();
-  return data.url;
+  return { url: data.url || "", alreadyExists: data.already_exists || false };
 }
 
 async function uploadPhoto(file) {
-  const url = await uploadRawPhoto(file);
+  const { url } = await uploadRawPhoto(file);
   if (!url) return "";
   setPhoto(url);
   await identifyPhoto();
@@ -206,36 +321,55 @@ async function processBatch(files) {
   if (!list.length) return;
 
   let created = 0;
+  let skipped = 0;
   let failed = 0;
+  const failedNames = [];
+
   setBatchStatus(`Processando 0 de ${list.length} fotos...`);
 
   for (const [index, file] of list.entries()) {
-    setBatchStatus(`Processando ${index + 1} de ${list.length} fotos...`);
+    setBatchStatus(`Processando ${index + 1} de ${list.length}...`);
     try {
-      const fotoUrl = await uploadRawPhoto(file);
+      const { url: fotoUrl, alreadyExists } = await uploadRawPhoto(file);
+
+      if (alreadyExists && currentItems.some((item) => item.foto_url === fotoUrl)) {
+        skipped += 1;
+        continue;
+      }
+
       const suggestion = await identifyUploadedPhoto(fotoUrl);
+      const ano = suggestion.ano ? Number(suggestion.ano) : null;
       const payload = {
         tipo: selectedCollection,
-        nome: suggestion.nome || `Item ${index + 1}`,
-        marca: suggestion.marca || "",
-        time: suggestion.time || "",
-        cor: suggestion.cor || "",
+        nome: (suggestion.nome || file.name || `Item ${index + 1}`).slice(0, 120),
+        marca: (suggestion.marca || "").slice(0, 80),
+        time: (suggestion.time || "").slice(0, 80),
+        cor: (suggestion.cor || "").slice(0, 80),
         tamanho: "",
-        ano: suggestion.ano ? Number(suggestion.ano) : null,
+        ano: (ano && ano >= 1900 && ano <= 2100) ? ano : null,
         localizacao: "",
         data_compra: "",
         foto_url: fotoUrl,
-        observacoes: suggestion.observacoes || "",
+        observacoes: (suggestion.observacoes || "").slice(0, 1000),
       };
       await request("/api/itens", { method: "POST", body: JSON.stringify(payload) });
       created += 1;
     } catch (error) {
       failed += 1;
+      const label = `${file.name || `Foto ${index + 1}`} (${error.message || "erro desconhecido"})`;
+      failedNames.push(label);
     }
   }
 
   await refresh();
-  setBatchStatus(`Lote concluido: ${created} cadastrado(s), ${failed} com erro.`);
+
+  const parts = [];
+  if (created > 0) parts.push(`${created} cadastrado(s)`);
+  if (skipped > 0) parts.push(`${skipped} ja existia(m)`);
+  if (failed > 0) parts.push(`${failed} com erro`);
+  let msg = `Lote concluido: ${parts.join(" · ")}`;
+  if (failedNames.length) msg += `\nErros: ${failedNames.join(", ")}`;
+  setBatchStatus(msg);
 }
 
 function setTab(name) {
@@ -246,16 +380,24 @@ function setTab(name) {
   verificarPanel.classList.toggle("active", !cadastro);
 }
 
-function setCollection(tipo) {
+// Define o tipo padrão do FORMULÁRIO de cadastro (não mexe na lista).
+function setFormType(tipo) {
   selectedCollection = tipo;
   document.querySelector("#tipo").value = tipo;
-  tipoFilter.value = tipo;
   verifyTipo.value = tipo;
-  selectedCollectionLabel.textContent = `Colecao de ${collectionNames[tipo]}`;
+  selectedCollectionLabel.textContent = `Coleção de ${collectionNames[tipo] || "itens"}`;
+  adaptFormForTipo(tipo);
+}
+
+// Filtra a LISTA por tipo ("" = tudo). Também ajusta o tipo padrão do cadastro.
+function setFilter(tipo) {
+  viewFilter = tipo;
+  tipoFilter.value = tipo;
+  if (tipo) setFormType(tipo);
   collectionButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.collection === tipo);
   });
-  loadItems().catch((error) => alert(error.message));
+  loadTimeFilter(tipo).then(() => loadItems()).catch((error) => alert(error.message));
 }
 
 function renderVerifyResult(result) {
@@ -285,7 +427,7 @@ async function verifyPhoto(file) {
   verifyResult.textContent = "Analisando foto...";
 
   try {
-    const fotoUrl = await uploadRawPhoto(file);
+    const { url: fotoUrl } = await uploadRawPhoto(file);
     verifyPreview.src = fotoUrl;
     verifyPreview.classList.add("visible");
     const result = await request("/api/verificar-foto", {
@@ -309,7 +451,7 @@ async function verifyCurrentPhoto() {
     return;
   }
 
-  setTab("verificar");
+  openDrawer("verificar");
   verifyPreview.src = fotoUrl;
   verifyPreview.classList.add("visible");
   verifyResult.textContent = "Procurando itens parecidos...";
@@ -387,7 +529,7 @@ async function openDeviceCamera(onFile, fallbackInput) {
 
 function fillForm(item) {
   itemId.value = item.id;
-  setCollection(item.tipo);
+  setFormType(item.tipo);
   fields.forEach((field) => {
     const element = document.querySelector(`#${field}`);
     element.value = item[field] ?? "";
@@ -395,7 +537,7 @@ function fillForm(item) {
   setPhoto(item.foto_url);
   formTitle.textContent = "Editar item";
   setTab("cadastro");
-  document.querySelector("#formPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+  openDrawer("cadastro");
 }
 
 function resetForm() {
@@ -406,29 +548,69 @@ function resetForm() {
   photoUpload.value = "";
   photoCamera.value = "";
   formTitle.textContent = "Adicionar por foto";
+  adaptFormForTipo(selectedCollection);
 }
 
 function renderStats(summary) {
-  document.querySelector("#totalItems").textContent = summary.total;
-  document.querySelector("#totalBones").textContent = summary.por_tipo.bone || 0;
-  document.querySelector("#totalCamisas").textContent = summary.por_tipo.camisa || 0;
-  document.querySelector("#totalOculos").textContent = summary.por_tipo.oculos || 0;
-  document.querySelector("#collectionBones").textContent = summary.por_tipo.bone || 0;
-  document.querySelector("#collectionCamisas").textContent = summary.por_tipo.camisa || 0;
-  document.querySelector("#collectionOculos").textContent = summary.por_tipo.oculos || 0;
+  const set = (id, value) => {
+    const el = document.querySelector(id);
+    if (el) el.textContent = value;
+  };
+  set("#collectionTotal", summary.total);
+  set("#collectionBones", summary.por_tipo.bone || 0);
+  set("#collectionCamisas", summary.por_tipo.camisa || 0);
+  set("#collectionOculos", summary.por_tipo.oculos || 0);
 }
 
-function metaLine(item) {
-  const parts = [
-    item.marca,
-    item.time,
-    item.cor,
-    item.tamanho,
-    item.ano,
-    item.localizacao,
-  ].filter(Boolean);
+function cardMeta(item) {
+  const parts = [item.time || item.marca, item.ano].filter(Boolean);
+  return parts.join(" · ");
+}
 
-  return parts.map((part) => `<span>${escapeHtml(String(part))}</span>`).join("");
+function modalField(label, value) {
+  const v = value !== null && value !== undefined && String(value).trim();
+  return `
+    <div class="item-modal-field">
+      <dt>${label}</dt>
+      <dd>${v ? escapeHtml(String(value)) : "<span style='color:var(--faint)'>—</span>"}</dd>
+    </div>`;
+}
+
+function openItemModal(item) {
+  activeModalItem = item;
+  // Exibe exatamente a foto gravada (foto_url) — sem reprocessar nem reorientar.
+  itemModalPhoto.src = item.foto_url || placeholderFor(item.tipo);
+  itemModalPhoto.alt = item.nome;
+
+  const aut = item.autenticidade ?? "";
+  itemModalBody.innerHTML = `
+    <span class="badge">${normalizeTipo(item.tipo)}</span>
+    <h2 class="item-modal-name">${escapeHtml(item.nome)}</h2>
+    <div class="aut-selector">
+      <button class="aut-btn ${aut === "" ? "active" : ""}" data-autenticidade="">—</button>
+      <button class="aut-btn aut-original ${aut === "original" ? "active" : ""}" data-autenticidade="original">Original</button>
+      <button class="aut-btn aut-replica ${aut === "replica" ? "active" : ""}" data-autenticidade="replica">Réplica</button>
+    </div>
+    <dl class="item-modal-fields">
+      ${modalField("Marca", item.marca)}
+      ${modalField("Time", item.time)}
+      ${modalField("Cor", item.cor)}
+      ${modalField("Tamanho", item.tamanho)}
+      ${modalField("Ano", item.ano)}
+      ${modalField("Local", item.localizacao)}
+      ${modalField("Compra", item.data_compra)}
+    </dl>
+    ${item.observacoes ? `<p class="item-modal-obs">${escapeHtml(item.observacoes)}</p>` : ""}
+  `;
+
+  itemModalOverlay.classList.add("visible");
+  document.body.style.overflow = "hidden";
+}
+
+function closeItemModal() {
+  itemModalOverlay.classList.remove("visible");
+  document.body.style.overflow = "";
+  activeModalItem = null;
 }
 
 function renderItems(items) {
@@ -439,21 +621,16 @@ function renderItems(items) {
   items.forEach((item) => {
     const card = document.createElement("article");
     card.className = "item-card";
+    card.dataset.id = item.id;
+    const meta = cardMeta(item) || normalizeTipo(item.tipo);
     card.innerHTML = `
-      <img class="item-photo" src="${escapeHtml(item.foto_url || placeholderFor(item.tipo))}" alt="">
-      <div class="item-body">
-        <div class="item-top">
-          <div>
-            <span class="badge">${normalizeTipo(item.tipo)}</span>
-            <h3>${escapeHtml(item.nome)}</h3>
-          </div>
-        </div>
-        <div class="item-meta">${metaLine(item)}</div>
-        <p class="notes">${escapeHtml(item.observacoes || "")}</p>
-        <div class="card-actions">
-          <button type="button" data-action="edit" data-id="${item.id}">Editar</button>
-          <button class="delete" type="button" data-action="delete" data-id="${item.id}">Excluir</button>
-        </div>
+      <div class="item-photo-wrap">
+        <img class="item-photo" src="${escapeHtml(item.foto_url || placeholderFor(item.tipo))}" alt="${escapeHtml(item.nome)}" loading="lazy">
+        ${item.autenticidade === "replica" ? '<span class="replica-badge">Réplica</span>' : ""}
+      </div>
+      <div class="item-caption">
+        <span class="item-name">${escapeHtml(item.nome)}</span>
+        <span class="item-meta">${escapeHtml(meta)}</span>
       </div>
     `;
     itemList.appendChild(card);
@@ -465,10 +642,22 @@ async function loadSummary() {
   renderStats(summary);
 }
 
+async function loadTimeFilter(tipo) {
+  timeFilter.style.display = tipo === "camisa" ? "" : "none";
+  if (tipo !== "camisa") { timeFilter.value = ""; return; }
+  const times = await request(`/api/times?tipo=camisa`).catch(() => []);
+  const current = timeFilter.value;
+  timeFilter.innerHTML = '<option value="">Todos os times</option>' +
+    times.map(t => `<option value="${escapeHtml(t)}"${t === current ? " selected" : ""}>${escapeHtml(t)}</option>`).join("");
+}
+
 async function loadItems() {
   const url = apiUrl("/api/itens", {
     tipo: tipoFilter.value,
     q: searchInput.value.trim(),
+    autenticidade: autenticidadeFilter.value,
+    time: timeFilter.value,
+    ordem: ordemFilter.value,
   });
   const items = await request(url);
   renderItems(items);
@@ -477,6 +666,8 @@ async function loadItems() {
 async function refresh() {
   await Promise.all([loadSummary(), loadItems()]);
 }
+
+// ─── Event listeners ────────────────────────────
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -490,41 +681,152 @@ form.addEventListener("submit", async (event) => {
       await request("/api/itens", { method: "POST", body: JSON.stringify(payload) });
     }
     resetForm();
+    closeDrawer();
     await refresh();
   } catch (error) {
     alert(error.message);
   }
 });
 
-itemList.addEventListener("click", async (event) => {
-  const button = event.target.closest("button");
-  if (!button) return;
-
-  const id = Number(button.dataset.id);
-  const item = currentItems.find((entry) => entry.id === id);
-
-  if (button.dataset.action === "edit" && item) {
-    fillForm(item);
-  }
-
-  if (button.dataset.action === "delete") {
-    const ok = confirm("Excluir este item da colecao?");
-    if (!ok) return;
-    await request(`/api/itens/${id}`, { method: "DELETE" });
-    await refresh();
+itemList.addEventListener("click", (event) => {
+  const card = event.target.closest(".item-card[data-id]");
+  if (card) {
+    const id = Number(card.dataset.id);
+    const item = currentItems.find((entry) => entry.id === id);
+    if (item) openItemModal(item);
   }
 });
 
-[searchInput, tipoFilter].forEach((element) => {
+itemModalBody.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".aut-btn[data-autenticidade]");
+  if (!btn || !activeModalItem) return;
+  const newVal = btn.dataset.autenticidade;
+  const item = activeModalItem;
+  if (newVal === (item.autenticidade ?? "")) return;
+
+  itemModalBody.querySelectorAll(".aut-btn").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
+
+  try {
+    await request(`/api/itens/${item.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...item, autenticidade: newVal }),
+    });
+    item.autenticidade = newVal;
+    if (activeModalItem) activeModalItem.autenticidade = newVal;
+    const stored = currentItems.find((i) => i.id === item.id);
+    if (stored) stored.autenticidade = newVal;
+
+    const card = document.querySelector(`.item-card[data-id="${item.id}"]`);
+    const wrap = card && card.querySelector(".item-photo-wrap");
+    if (wrap) {
+      const existing = wrap.querySelector(".replica-badge");
+      if (newVal === "replica" && !existing) {
+        wrap.insertAdjacentHTML("beforeend", '<span class="replica-badge">Réplica</span>');
+      } else if (newVal !== "replica" && existing) {
+        existing.remove();
+      }
+    }
+  } catch (err) {
+    alert(err.message);
+    itemModalBody.querySelectorAll(".aut-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.autenticidade === (item.autenticidade ?? ""));
+    });
+  }
+});
+
+itemModalClose.addEventListener("click", closeItemModal);
+itemModalOverlay.addEventListener("click", (e) => {
+  if (e.target === itemModalOverlay) closeItemModal();
+});
+
+itemModalEditBtn.addEventListener("click", () => {
+  if (!activeModalItem) return;
+  const item = activeModalItem;
+  closeItemModal();
+  fillForm(item);
+});
+
+itemModalRotateBtn.addEventListener("click", async () => {
+  if (!activeModalItem) return;
+  const item = activeModalItem;
+  try {
+    itemModalRotateBtn.textContent = "...";
+    const result = await request(`/api/itens/${item.id}/rotar-foto`, { method: "POST" });
+    item.foto_url = result.url;
+    if (activeModalItem) activeModalItem.foto_url = result.url;
+    const stored = currentItems.find((i) => i.id === item.id);
+    if (stored) stored.foto_url = result.url;
+    itemModalPhoto.src = result.url;
+    const card = document.querySelector(`.item-card[data-id="${item.id}"] .item-photo`);
+    if (card) card.src = result.url;
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    itemModalRotateBtn.textContent = "↻";
+  }
+});
+
+itemModalDeleteBtn.addEventListener("click", async () => {
+  if (!activeModalItem) return;
+  const id = activeModalItem.id;
+  const ok = confirm("Excluir este item da colecao?");
+  if (!ok) return;
+  try {
+    await request(`/api/itens/${id}`, { method: "DELETE" });
+    closeItemModal();
+    await refresh();
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+[searchInput, autenticidadeFilter, ordemFilter].forEach((element) => {
   element.addEventListener("input", loadItems);
 });
 
-cancelEditBtn.addEventListener("click", resetForm);
+timeFilter.addEventListener("change", loadItems);
+
+cancelEditBtn.addEventListener("click", () => {
+  resetForm();
+  closeDrawer();
+});
+
 newItemBtn.addEventListener("click", () => {
   resetForm();
-  setTab("cadastro");
-  document.querySelector("#nome").focus();
+  openDrawer("cadastro");
 });
+
+drawerOverlay.addEventListener("click", () => {
+  closeDrawer();
+});
+
+bottomNavBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const nav = btn.dataset.nav;
+    if (nav === "lista") {
+      closeDrawer();
+    } else if (nav === "adicionar") {
+      resetForm();
+      openDrawer("cadastro");
+    } else if (nav === "verificar") {
+      openDrawer("verificar");
+    }
+  });
+});
+
+const verificarTopBtn = document.querySelector("#verificarTopBtn");
+if (verificarTopBtn) {
+  verificarTopBtn.addEventListener("click", () => openDrawer("verificar"));
+}
+
+document.querySelector("#tipo").addEventListener("change", (e) => {
+  selectedCollection = e.target.value;
+  verifyTipo.value = e.target.value;
+  selectedCollectionLabel.textContent = `Coleção de ${collectionNames[e.target.value] || "itens"}`;
+  adaptFormForTipo(e.target.value);
+});
+
 clearPhotoBtn.addEventListener("click", () => setPhoto(""));
 identifyPhotoBtn.addEventListener("click", () => identifyPhoto());
 checkCurrentPhotoBtn.addEventListener("click", verifyCurrentPhoto);
@@ -533,7 +835,7 @@ verificarTab.addEventListener("click", () => setTab("verificar"));
 cameraButton.addEventListener("click", () => openDeviceCamera(uploadPhoto, photoCamera));
 verifyCameraButton.addEventListener("click", () => openDeviceCamera(verifyPhoto, verifyCamera));
 collectionButtons.forEach((button) => {
-  button.addEventListener("click", () => setCollection(button.dataset.collection));
+  button.addEventListener("click", () => setFilter(button.dataset.collection));
 });
 
 [photoUpload, photoCamera].forEach((input) => {
@@ -558,7 +860,8 @@ collectionButtons.forEach((button) => {
   });
 });
 
-costPill.textContent = `IA: US$ ${sessionCost.toFixed(6)}`;
+costPill.textContent = `IA · US$ ${sessionCost.toFixed(6)}`;
+setFormType("bone");
 refresh()
-  .then(() => setCollection(selectedCollection))
+  .then(() => setFilter(""))
   .catch((error) => alert(error.message));

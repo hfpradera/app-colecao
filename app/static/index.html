@@ -2,115 +2,159 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Colecao</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Coleção</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20" />
+    <link rel="manifest" href="/static/manifest.json" />
+    <link rel="apple-touch-icon" href="/static/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Coleção" />
+    <meta name="theme-color" content="#F6F4F0" />
   </head>
   <body>
     <main class="app-shell">
-      <section class="topbar">
-        <div>
-          <p class="eyebrow">Colecao pessoal</p>
-          <h1>Bones, camisas de times e oculos</h1>
+      <!-- ░ Cabeçalho único ░ -->
+      <header class="topbar">
+        <div class="brand">
+          <div class="monogram">C</div>
+          <div>
+            <p class="eyebrow">Acervo pessoal</p>
+            <h1>Bonés, camisas &amp; óculos</h1>
+          </div>
         </div>
         <div class="top-actions">
-          <span class="cost-pill" id="costPill">IA: US$ 0.000000</span>
-          <button class="primary" id="newItemBtn" type="button">Novo item</button>
+          <span class="cost-pill" id="costPill" title="Custo acumulado de leituras por IA">IA · US$ 0,000000</span>
+          <button class="btn" id="verificarTopBtn" type="button">Verificar foto</button>
+          <button class="primary" id="newItemBtn" type="button">＋ Novo item</button>
         </div>
-      </section>
+      </header>
 
-      <section class="collection-tabs" aria-label="Escolha a colecao">
-        <button class="collection-card active" data-collection="bone" type="button">
-          <span>Bones</span>
-          <strong id="collectionBones">0</strong>
-        </button>
-        <button class="collection-card" data-collection="camisa" type="button">
-          <span>Camisas</span>
-          <strong id="collectionCamisas">0</strong>
-        </button>
-        <button class="collection-card" data-collection="oculos" type="button">
-          <span>Oculos</span>
-          <strong id="collectionOculos">0</strong>
-        </button>
-      </section>
-
-      <section class="stats-grid" aria-label="Resumo da colecao">
-        <article>
-          <span>Total</span>
-          <strong id="totalItems">0</strong>
-        </article>
-        <article>
-          <span>Bones</span>
-          <strong id="totalBones">0</strong>
-        </article>
-        <article>
-          <span>Camisas</span>
-          <strong id="totalCamisas">0</strong>
-        </article>
-        <article>
-          <span>Oculos</span>
-          <strong id="totalOculos">0</strong>
-        </article>
-      </section>
-
-      <section class="workspace">
-        <aside class="form-panel" id="formPanel">
-          <div class="tabs" role="tablist" aria-label="Acoes da colecao">
-            <button class="tab-button active" id="cadastroTab" type="button">Adicionar</button>
-            <button class="tab-button" id="verificarTab" type="button">Verificar foto</button>
+      <!-- ░ Toolbar: filtro unificado + busca/ordenação ░ -->
+      <div class="toolbar">
+        <div class="segment" role="tablist" aria-label="Filtrar por tipo">
+          <button class="seg-btn active" data-collection="" type="button">Tudo <strong id="collectionTotal">0</strong></button>
+          <button class="seg-btn" data-collection="bone" type="button">Bonés <strong id="collectionBones">0</strong></button>
+          <button class="seg-btn" data-collection="camisa" type="button">Camisas <strong id="collectionCamisas">0</strong></button>
+          <button class="seg-btn" data-collection="oculos" type="button">Óculos <strong id="collectionOculos">0</strong></button>
+        </div>
+        <div class="toolbar-right">
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="searchInput" type="search" placeholder="Buscar na coleção" />
           </div>
+          <select id="timeFilter" class="filter-select" style="display:none">
+            <option value="">Todos os times</option>
+          </select>
+          <select id="autenticidadeFilter" class="filter-select">
+            <option value="">Réplica / Original</option>
+            <option value="original">Só originais</option>
+            <option value="replica">Só réplicas</option>
+            <option value="nenhum">Não classificados</option>
+          </select>
+          <select id="ordemFilter" class="filter-select">
+            <option value="updated">Último editado</option>
+            <option value="added">Mais recente</option>
+            <option value="az">Nome A→Z</option>
+            <option value="za">Nome Z→A</option>
+          </select>
+          <!-- espelha o filtro de tipo para a lógica de listagem -->
+          <select id="tipoFilter" hidden aria-hidden="true">
+            <option value="">Todos os tipos</option>
+            <option value="bone">Bones</option>
+            <option value="camisa">Camisas</option>
+            <option value="oculos">Oculos</option>
+          </select>
+        </div>
+      </div>
 
-          <div class="tab-panel active" id="cadastroPanel">
+      <!-- ░ Galeria ░ -->
+      <section class="list-panel">
+        <div class="item-list" id="itemList"></div>
+        <p class="empty-state" id="emptyState">Nenhum item por aqui ainda.</p>
+      </section>
+
+      <!-- ░ Drawer: adicionar / verificar ░ -->
+      <aside class="form-panel" id="formPanel">
+        <div class="drawer-handle"></div>
+
+        <div class="tabs" role="tablist" aria-label="Ações da coleção">
+          <button class="tab-button active" id="cadastroTab" type="button">Adicionar</button>
+          <button class="tab-button" id="verificarTab" type="button">Verificar foto</button>
+        </div>
+
+        <!-- Cadastro: foto primeiro -->
+        <div class="tab-panel active" id="cadastroPanel">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow" id="selectedCollectionLabel">Colecao de bones</p>
+              <p class="eyebrow" id="selectedCollectionLabel">Coleção de bonés</p>
               <h2 id="formTitle">Adicionar por foto</h2>
             </div>
-            <button class="ghost icon-button" id="cancelEditBtn" type="button" aria-label="Cancelar">x</button>
+            <button class="icon-button" id="cancelEditBtn" type="button" aria-label="Cancelar">✕</button>
           </div>
 
           <form id="itemForm">
             <input id="itemId" type="hidden" />
+            <input id="foto_url" type="hidden" maxlength="500" />
+
+            <div class="photo-first">
+              <strong>Comece pela foto</strong>
+              <span>A IA preenche nome, time e ano. Selecione várias fotos do álbum para cadastrar em lote.</span>
+            </div>
+
+            <div class="photo-field">
+              <img id="photoPreview" class="photo-preview" alt="" />
+              <div class="photo-actions">
+                <button class="upload-button" id="cameraButton" type="button">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3.2"/></svg>
+                  Câmera
+                </button>
+                <label class="upload-button">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-5-5L5 21"/></svg>
+                  Galeria
+                  <input id="foto_upload" type="file" accept="image/*" multiple />
+                </label>
+                <button class="upload-button" id="checkCurrentPhotoBtn" type="button">Já tenho?</button>
+                <button class="clear-photo" id="clearPhotoBtn" type="button">Remover</button>
+              </div>
+              <input id="foto_camera" class="hidden-file" type="file" accept="image/*" capture="environment" />
+              <div class="batch-status" id="batchStatus"></div>
+            </div>
 
             <label class="type-field">
               Tipo
               <select id="tipo" required>
-                <option value="bone">Bone</option>
+                <option value="bone">Boné</option>
                 <option value="camisa">Camisa</option>
-                <option value="oculos">Oculos</option>
+                <option value="oculos">Óculos</option>
               </select>
             </label>
-
-            <div class="photo-first">
-              <strong>Comece pela foto</strong>
-              <span>Suba uma foto para revisar antes de salvar, ou selecione varias fotos do album para cadastrar em lote.</span>
-            </div>
 
             <label>
               Nome
               <div class="name-row">
-                <input id="nome" type="text" required maxlength="120" placeholder="Ex.: Camisa Brasil 1998" />
-                <button class="ghost ai-button" id="identifyPhotoBtn" type="button">IA</button>
+                <input id="nome" type="text" required maxlength="120" placeholder="Nome do item" />
+                <button class="ai-button" id="identifyPhotoBtn" type="button">IA</button>
               </div>
             </label>
 
-            <div class="two-cols">
+            <div class="two-cols" id="rowMarcaTime">
               <label>
                 Marca
                 <input id="marca" type="text" maxlength="80" />
               </label>
-              <label>
-                Time
+              <label id="labelTime">
+                <span id="timeLabelText">Time</span>
                 <input id="time" type="text" maxlength="80" />
               </label>
             </div>
 
-            <div class="two-cols">
+            <div class="two-cols" id="rowCorTamanho">
               <label>
-                Cor
-                <input id="cor" type="text" maxlength="80" />
+                <span id="corLabelText">Cor</span>
+                <input id="cor" type="text" maxlength="200" />
               </label>
-              <label>
+              <label id="labelTamanho">
                 Tamanho
                 <input id="tamanho" type="text" maxlength="40" />
               </label>
@@ -123,7 +167,7 @@
               </label>
               <label>
                 Local
-                <input id="localizacao" type="text" maxlength="120" placeholder="Armario, prateleira..." />
+                <input id="localizacao" type="text" maxlength="120" placeholder="Armário, prateleira..." />
               </label>
             </div>
 
@@ -132,88 +176,105 @@
                 Compra
                 <input id="data_compra" type="date" />
               </label>
-            </div>
-
-            <div class="photo-field">
-              <span>Foto</span>
-              <input id="foto_url" type="hidden" maxlength="500" />
-              <img id="photoPreview" class="photo-preview" alt="" />
-              <div class="photo-actions">
-                <label class="upload-button">
-                  Subir fotos
-                  <input id="foto_upload" type="file" accept="image/*" multiple />
-                </label>
-                <button class="upload-button" id="cameraButton" type="button">Camera</button>
-                <button class="upload-button" id="checkCurrentPhotoBtn" type="button">Ja tenho?</button>
-                <button class="ghost clear-photo" id="clearPhotoBtn" type="button">Remover</button>
-              </div>
-              <input id="foto_camera" class="hidden-file" type="file" accept="image/*" capture="environment" />
-              <div class="batch-status" id="batchStatus"></div>
+              <label>
+                Autenticidade
+                <select id="autenticidade">
+                  <option value="">Não informado</option>
+                  <option value="original">Original</option>
+                  <option value="replica">Réplica</option>
+                </select>
+              </label>
             </div>
 
             <label>
-              Observacoes
+              Observações
               <textarea id="observacoes" rows="3" maxlength="1000"></textarea>
             </label>
 
             <button class="primary full" type="submit">Salvar item</button>
           </form>
+        </div>
+
+        <!-- Verificar -->
+        <div class="tab-panel" id="verificarPanel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Busca por foto</p>
+              <h2>Já tenho esse item?</h2>
+            </div>
           </div>
 
-          <div class="tab-panel" id="verificarPanel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">Busca por foto</p>
-                <h2>Ja tenho esse item?</h2>
-              </div>
-            </div>
+          <div class="verify-box">
+            <label>
+              Tipo
+              <select id="verifyTipo">
+                <option value="">Detectar qualquer tipo</option>
+                <option value="bone">Boné</option>
+                <option value="camisa">Camisa</option>
+                <option value="oculos">Óculos</option>
+              </select>
+            </label>
 
-            <div class="verify-box">
-              <label>
-                Tipo
-                <select id="verifyTipo">
-                  <option value="">Detectar qualquer tipo</option>
-                  <option value="bone">Bone</option>
-                  <option value="camisa">Camisa</option>
-                  <option value="oculos">Oculos</option>
-                </select>
+            <img id="verifyPreview" class="photo-preview" alt="" />
+
+            <div class="photo-actions">
+              <label class="upload-button">
+                Subir foto
+                <input id="verifyUpload" type="file" accept="image/*" />
               </label>
+              <button class="upload-button" id="verifyCameraButton" type="button">Câmera</button>
+            </div>
+            <input id="verifyCamera" class="hidden-file" type="file" accept="image/*" capture="environment" />
 
-              <img id="verifyPreview" class="photo-preview" alt="" />
-
-              <div class="photo-actions">
-                <label class="upload-button">
-                  Subir foto
-                  <input id="verifyUpload" type="file" accept="image/*" />
-                </label>
-                <button class="upload-button" id="verifyCameraButton" type="button">Camera</button>
-              </div>
-              <input id="verifyCamera" class="hidden-file" type="file" accept="image/*" capture="environment" />
-
-              <div class="verify-result" id="verifyResult">
-                Envie uma foto para verificar se o item ja existe na colecao.
-              </div>
+            <div class="verify-result" id="verifyResult">
+              Envie uma foto para verificar se o item já existe na coleção.
             </div>
           </div>
-        </aside>
+        </div>
+      </aside>
 
-        <section class="list-panel">
-          <div class="filters">
-            <input id="searchInput" type="search" placeholder="Buscar na colecao" />
-            <select id="tipoFilter">
-              <option value="">Todos os tipos</option>
-              <option value="bone">Bones</option>
-              <option value="camisa">Camisas</option>
-              <option value="oculos">Oculos</option>
-            </select>
-          </div>
-
-          <div class="item-list" id="itemList"></div>
-          <p class="empty-state" id="emptyState">Nenhum item cadastrado ainda.</p>
-        </section>
-      </section>
+      <div class="drawer-overlay" id="drawerOverlay"></div>
     </main>
 
-    <script src="/static/app.js"></script>
+    <!-- ░ Modal de item ░ -->
+    <div class="item-modal-overlay" id="itemModalOverlay">
+      <div class="item-modal" id="itemModal">
+        <div class="item-modal-img-wrap">
+          <img class="item-modal-photo" id="itemModalPhoto" alt="" />
+          <button class="item-modal-close" id="itemModalClose" type="button" aria-label="Fechar">✕</button>
+        </div>
+        <div class="item-modal-body" id="itemModalBody"></div>
+        <div class="item-modal-actions">
+          <button class="primary" id="itemModalEditBtn" type="button">Editar</button>
+          <button class="item-modal-rotate" id="itemModalRotateBtn" type="button" title="Girar 90°">↻</button>
+          <button class="item-modal-delete" id="itemModalDeleteBtn" type="button">Excluir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ░ Navegação inferior (celular) ░ -->
+    <nav class="bottom-nav" aria-label="Navegação">
+      <button class="bnav-btn active" data-nav="lista" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        </svg>
+        <span>Coleção</span>
+      </button>
+      <button class="bnav-btn" data-nav="adicionar" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        <span>Adicionar</span>
+      </button>
+      <button class="bnav-btn" data-nav="verificar" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <span>Verificar</span>
+      </button>
+    </nav>
+
+    <script src="/static/app.js?v=20"></script>
   </body>
 </html>

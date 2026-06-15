@@ -2,6 +2,9 @@ __pycache__/
 .venv/
 *.pyc
 .env
+.claude/
 data/*.db
 data/*.db-*
+data/*.bak*
+data/*.json
 data/uploads/
